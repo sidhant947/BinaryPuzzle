@@ -1,0 +1,1 @@
+A minimalist binary placement logic puzzle game.

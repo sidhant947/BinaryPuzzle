@@ -1,0 +1,6 @@
+Features:
+
+No ads.
+No trackers, analytics, or telemetry.
+Offline first with zero internet permissions required.
+Infinite procedurally generated levels across multiple grid sizes.
