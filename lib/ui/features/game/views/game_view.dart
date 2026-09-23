@@ -168,7 +168,7 @@ class _GameViewState extends ConsumerState<GameView> {
                                     state.hintCell!['row'] == r &&
                                     state.hintCell!['col'] == c;
 
-                                Color cellBg = Colors.white;
+                                Color cellBg = AppColors.surface;
                                 Color shadowColor = AppColors.border.withValues(alpha: 0.5);
                                 Color textColor = isClue ? AppColors.headingDark : AppColors.headingDark.withValues(alpha: 0.85);
 

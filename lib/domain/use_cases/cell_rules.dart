@@ -87,17 +87,83 @@ class CellRules {
     GameLevel level,
   ) {
     final n = level.gridSize;
+    final solution = _findSolution(grid, n) ?? level.solutionGrid;
     for (int r = 0; r < n; r++) {
       for (int c = 0; c < n; c++) {
-        if (grid[r][c] == null || grid[r][c] != level.solutionGrid[r][c]) {
+        if (grid[r][c] == null || grid[r][c] != solution[r][c]) {
           return {
             'row': r,
             'col': c,
-            'value': level.solutionGrid[r][c],
+            'value': solution[r][c],
           };
         }
       }
     }
     return null;
+  }
+
+  static List<List<int>>? _findSolution(List<List<int?>> grid, int n) {
+    final copy = List.generate(n, (r) => List<int?>.from(grid[r]));
+    if (_solve(copy, n)) {
+      return List.generate(n, (r) => List<int>.generate(n, (c) => copy[r][c]!));
+    }
+    return null;
+  }
+
+  static bool _solve(List<List<int?>> grid, int n) {
+    int targetR = -1;
+    int targetC = -1;
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (grid[r][c] == null) {
+          targetR = r;
+          targetC = c;
+          break;
+        }
+      }
+      if (targetR != -1) break;
+    }
+
+    if (targetR == -1) return _validateFull(grid, n);
+
+    for (final v in [0, 1]) {
+      grid[targetR][targetC] = v;
+      if (_isValidPartial(grid, n, targetR, targetC)) {
+        if (_solve(grid, n)) return true;
+      }
+      grid[targetR][targetC] = null;
+    }
+    return false;
+  }
+
+  static bool _isValidPartial(List<List<int?>> grid, int n, int r, int c) {
+    final row = grid[r];
+    if (c >= 2 && row[c] == row[c - 1] && row[c] == row[c - 2]) return false;
+    if (c >= 1 && c < n - 1 && row[c - 1] != null && row[c + 1] != null && row[c] == row[c - 1] && row[c] == row[c + 1]) return false;
+    if (c < n - 2 && row[c + 1] != null && row[c + 2] != null && row[c] == row[c + 1] && row[c] == row[c + 2]) return false;
+    if (!lineCountsValid(row)) return false;
+
+    final col = [for (int i = 0; i < n; i++) grid[i][c]];
+    if (r >= 2 && col[r] == col[r - 1] && col[r] == col[r - 2]) return false;
+    if (r >= 1 && r < n - 1 && col[r - 1] != null && col[r + 1] != null && col[r] == col[r - 1] && col[r] == col[r + 1]) return false;
+    if (r < n - 2 && col[r + 1] != null && col[r + 2] != null && col[r] == col[r + 1] && col[r] == col[r + 2]) return false;
+    if (!lineCountsValid(col)) return false;
+
+    return true;
+  }
+
+  static bool _validateFull(List<List<int?>> grid, int n) {
+    for (int i = 0; i < n; i++) {
+      for (int j = i + 1; j < n; j++) {
+        bool sameRow = true;
+        bool sameCol = true;
+        for (int k = 0; k < n; k++) {
+          if (grid[i][k] != grid[j][k]) sameRow = false;
+          if (grid[k][i] != grid[k][j]) sameCol = false;
+        }
+        if (sameRow || sameCol) return false;
+      }
+    }
+    return true;
   }
 }
