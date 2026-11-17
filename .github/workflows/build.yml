@@ -6,7 +6,7 @@ on:
       version:
         description: 'Version tag (e.g. v1.0.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'V1.0.0'
 
 permissions:
   contents: write
@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

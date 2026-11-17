@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:binarypuzzle/domain/models/app_settings.dart';
@@ -166,6 +166,20 @@ class SettingsView extends ConsumerWidget {
                     textColor: AppColors.headingDark,
                     borderColor: AppColors.border,
                     onPressed: () => _openUrl('https://liberapay.com/sidhant947/donate'),
+                  ),
+                  const SizedBox(height: 12),
+                  TangibleButton(
+                    text: 'Follow me on Mastodon',
+                    isSecondary: true,
+                    height: 48,
+                    onPressed: () => _openUrl('https://mastodon.social/@sidhant947'),
+                  ),
+                  const SizedBox(height: 12),
+                  TangibleButton(
+                    text: 'Contact Email',
+                    isSecondary: true,
+                    height: 48,
+                    onPressed: () => _openUrl('mailto:sidhant947@proton.me'),
                   ),
                   const SizedBox(height: 12),
                   TangibleButton(

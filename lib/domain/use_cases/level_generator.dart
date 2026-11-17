@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:binarypuzzle/domain/models/game_level.dart';
-import 'package:binarypuzzle/domain/use_cases/cell_rules.dart';
 
 class LevelGenerator {
   final Map<int, GameLevel> _cache = {};
@@ -80,82 +79,118 @@ class LevelGenerator {
     );
   }
 
-  List<List<int>> _generateValidBoard(int n, Random random) {
-    final grid = List.generate(n, (_) => List<int?>.filled(n, null));
-    _solveBoard(grid, n, random);
-    return List.generate(n, (r) => List.generate(n, (c) => grid[r][c] ?? 0));
-  }
+  static final Map<int, List<int>> _validRowsCache = {};
 
-  bool _solveBoard(List<List<int?>> grid, int n, Random random) {
-    int targetR = -1;
-    int targetC = -1;
+  static List<int> _getValidRows(int n) {
+    if (_validRowsCache.containsKey(n)) {
+      return _validRowsCache[n]!;
+    }
+    final half = n ~/ 2;
+    final valid = <int>[];
+    final limit = 1 << n;
+    for (int i = 0; i < limit; i++) {
+      int ones = 0;
+      for (int b = 0; b < n; b++) {
+        if ((i & (1 << b)) != 0) ones++;
+      }
+      if (ones != half) continue;
 
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (grid[r][c] == null) {
-          targetR = r;
-          targetC = c;
+      bool ok = true;
+      for (int b = 0; b < n - 2; b++) {
+        final b1 = (i >> b) & 1;
+        final b2 = (i >> (b + 1)) & 1;
+        final b3 = (i >> (b + 2)) & 1;
+        if (b1 == b2 && b2 == b3) {
+          ok = false;
           break;
         }
       }
-      if (targetR != -1) break;
+      if (ok) valid.add(i);
     }
-
-    if (targetR == -1) return _validateFullBoard(grid, n);
-
-    final values = [0, 1]..shuffle(random);
-    for (final v in values) {
-      grid[targetR][targetC] = v;
-      if (_isPartialPlacementValid(grid, n, targetR, targetC)) {
-        if (_solveBoard(grid, n, random)) return true;
-      }
-      grid[targetR][targetC] = null;
-    }
-
-    return false;
+    _validRowsCache[n] = valid;
+    return valid;
   }
 
-  bool _isPartialPlacementValid(List<List<int?>> grid, int n, int r, int c) {
-    final row = grid[r];
-    if (c >= 2 && row[c] == row[c - 1] && row[c] == row[c - 2]) return false;
-    if (c >= 1 && c < n - 1 && row[c - 1] != null && row[c + 1] != null && row[c] == row[c - 1] && row[c] == row[c + 1]) return false;
-    if (c < n - 2 && row[c + 1] != null && row[c + 2] != null && row[c] == row[c + 1] && row[c] == row[c + 2]) return false;
+  List<List<int>> _generateValidBoard(int n, Random random) {
+    final validRows = _getValidRows(n);
+    final mask = (1 << n) - 1;
+    final half = n ~/ 2;
 
-    if (!CellRules.lineCountsValid(row)) return false;
+    for (int attempt = 0; attempt < 50; attempt++) {
+      final board = List<int>.filled(n, 0);
+      final colOnes = List<int>.filled(n, 0);
+      int steps = 0;
 
-    final col = [for (int i = 0; i < n; i++) grid[i][c]];
-    if (r >= 2 && col[r] == col[r - 1] && col[r] == col[r - 2]) return false;
-    if (r >= 1 && r < n - 1 && col[r - 1] != null && col[r + 1] != null && col[r] == col[r - 1] && col[r] == col[r + 1]) return false;
-    if (r < n - 2 && col[r + 1] != null && col[r + 2] != null && col[r] == col[r + 1] && col[r] == col[r + 2]) return false;
+      bool solve(int rowIndex) {
+        steps++;
+        if (steps > 5000) return false;
+        if (rowIndex == n) {
+          for (int c1 = 0; c1 < n; c1++) {
+            for (int c2 = c1 + 1; c2 < n; c2++) {
+              bool same = true;
+              for (int r = 0; r < n; r++) {
+                if (((board[r] >> c1) & 1) != ((board[r] >> c2) & 1)) {
+                  same = false;
+                  break;
+                }
+              }
+              if (same) return false;
+            }
+          }
+          return true;
+        }
 
-    if (!CellRules.lineCountsValid(col)) return false;
+        final shuffled = List<int>.from(validRows)..shuffle(random);
+        final remainingRows = n - rowIndex - 1;
 
-    return true;
-  }
+        rowLoop:
+        for (final row in shuffled) {
+          for (int prevR = 0; prevR < rowIndex; prevR++) {
+            if (board[prevR] == row) continue rowLoop;
+          }
 
-  bool _validateFullBoard(List<List<int?>> grid, int n) {
-    for (int i = 0; i < n; i++) {
-      for (int j = i + 1; j < n; j++) {
-        bool sameRow = true;
-        for (int k = 0; k < n; k++) {
-          if (grid[i][k] != grid[j][k]) {
-            sameRow = false;
-            break;
+          if (rowIndex >= 2) {
+            final r1 = board[rowIndex - 1];
+            final r2 = board[rowIndex - 2];
+            if ((((row & r1 & r2) | ((~row & ~r1 & ~r2) & mask))) != 0) {
+              continue rowLoop;
+            }
+          }
+
+          for (int c = 0; c < n; c++) {
+            final bit = (row >> c) & 1;
+            final newOnes = colOnes[c] + bit;
+            if (newOnes > half) continue rowLoop;
+            final newZeros = rowIndex + 1 - newOnes;
+            if (newZeros > half) continue rowLoop;
+            if (newOnes + remainingRows < half) continue rowLoop;
+            if (newZeros + remainingRows < half) continue rowLoop;
+          }
+
+          board[rowIndex] = row;
+          for (int c = 0; c < n; c++) {
+            colOnes[c] += (row >> c) & 1;
+          }
+
+          if (solve(rowIndex + 1)) return true;
+
+          for (int c = 0; c < n; c++) {
+            colOnes[c] -= (row >> c) & 1;
           }
         }
-        if (sameRow) return false;
 
-        bool sameCol = true;
-        for (int k = 0; k < n; k++) {
-          if (grid[k][i] != grid[k][j]) {
-            sameCol = false;
-            break;
-          }
-        }
-        if (sameCol) return false;
+        return false;
+      }
+
+      if (solve(0)) {
+        return List.generate(
+          n,
+          (r) => List<int>.generate(n, (c) => (board[r] >> c) & 1),
+        );
       }
     }
-    return true;
+
+    return List.generate(n, (_) => List<int>.filled(n, 0));
   }
 
   List<List<int?>> _createPuzzleFromSolution(
